@@ -1,0 +1,134 @@
+#Snakefile
+#
+#This file will run the TWAS pipeline from a directory containing GWAS sumamry stats, a reference LD panel, and GTEx expression data.
+#
+#To configure the paths to data files and other settings, edit
+#config.yaml
+#
+#to configure job submission settings for cluster, edit
+#cluster.json and submit.snakemake.sh
+
+#to run on RCC midway2 use 'scripts/snake/submit_snakemake.sh'
+import glob
+import os
+from snakemake.utils import R
+
+#Configuration -------------------------------------
+
+configfile: "/project2/nobrega/grace/expression/scripts/snake_postprocess/config.yaml"
+
+#Paths for data (end with forward slash)
+tissue=config["tissue"]
+trait=config["trait"]
+dir_proj= config["dir"]+trait+"/"+tissue+"/results/posthoc/"
+scripts=config["scripts"]
+
+#Paths for files:
+logs=dir_proj + "log/"
+tmp=dir_proj + "tmp/"
+
+#Paths for input files:
+LD=config["LD"]
+sig_genes=open(dir_proj+"sig_genes",'r').readlines()
+sig_genes=[x.rstrip() for x in sig_genes]
+lookup=config["lookup"]
+
+#Settings:
+offset=config["offset"]
+exp_N=config["exp_N"]
+data_source=config["data_source"]
+
+assert os.path.exists(dir_proj), "Project directory exists"
+
+#Directory to send log files. Needs to be created manually since it
+#is not a file created by a Snakemake rule.
+if not os.path.isdir(logs):
+    os.mkdir(logs)
+
+os.chdir(dir_proj)
+
+#Rules -------------------------------------
+
+rule all: #Here we tell snakemake everything that we want to be made
+    input:
+        expand(dir_proj+"coloc/loci/{gene}_exp.txt",gene=sig_genes),
+        dir_proj+"coloc/coloc_annotation.txt",
+        expand(dir_proj+"boxplots/{gene}_expression_boxplot.pdf",gene=sig_genes),
+        expand(dir_proj+"beds/{gene}_TWAS_sorted.bed.gz",gene=sig_genes),
+        dir_proj+"beds/allgenes_TWAS_sorted.bed.gz",
+        dir_proj+"coloc/colocalizing_genes_rsids"
+
+
+############ TWAS ###################
+
+rule prep_coloc_loci:
+    input:
+        sumstats=config["dir"]+trait+"/"+trait+"_GWAS_sumstats",
+        results=config["dir"]+trait+"/"+tissue+"/results/"+data_source+".all.dat.top"
+    output:
+        dir_proj+"coloc/loci/{gene}_exp.txt",
+        dir_proj+"coloc/loci/{gene}_GWAS_sumstats"
+    shell: "python2 {scripts}make_locus_files_expression.py {trait} {tissue} {data_source} {wildcards.gene} {input.sumstats} {lookup} {LD}"
+
+rule run_coloc:
+    input:
+        dir_proj+"coloc/loci/{gene}_exp.txt",
+        dir_proj+"coloc/loci/{gene}_GWAS_sumstats"
+    output:
+        dir_proj+"coloc/{gene}_coloc_status"
+    shell: "Rscript {scripts}run_coloc.R {trait} {tissue} {data_source} {wildcards.gene} {offset} {exp_N}"
+
+
+rule collect_coloc:
+    input:
+        expand(dir_proj+"coloc/{gene}_coloc_status",gene=sig_genes)
+    output:
+        coloc_list=dir_proj+"coloc/colocalizing_genes_rsids"
+    shell: "Rscript {scripts}collect_coloc.R {trait} {tissue} {data_source}"
+
+
+rule annotate_coloc:
+    input:
+        coloc_list=dir_proj+"coloc/colocalizing_genes_rsids"
+    output:
+        dir_proj+"coloc/coloc_annotation.txt"
+    shell: "python2 {scripts}annotate_coloc.py {trait} {tissue} {input} coloc/coloc_annotation.txt {data_source}"
+
+
+rule make_boxplots:
+    input:
+        coloc_list=dir_proj+"coloc/colocalizing_genes_rsids"
+    output: 
+        dir_proj+"boxplots/{gene}_expression_boxplot.pdf",
+        dir_proj+"reports/{gene}_report"        
+    shell: "Rscript {scripts}make_expression_boxplot.R {trait} {tissue} {wildcards.gene} {data_source}"
+
+
+rule make_beds:
+    output: 
+        dir_proj+"beds/{gene}_TWAS.bed"
+    shell: "Rscript {scripts}make_TWAS_bed.R {trait} {tissue} {wildcards.gene} {data_source}"
+
+rule prep_beds:
+    input:
+        dir_proj+"beds/{gene}_TWAS.bed"
+    output: 
+        dir_proj+"beds/{gene}_TWAS_sorted.bed.gz",
+        dir_proj+"beds/{gene}_TWAS_sorted.bed.gz.tbi"
+    shell: 
+        "sort -k1,1 -k2,2n beds/{wildcards.gene}_TWAS.bed > beds/{wildcards.gene}_TWAS_sorted.bed && "
+        "bgzip beds/{wildcards.gene}_TWAS_sorted.bed && "
+        "tabix -p bed beds/{wildcards.gene}_TWAS_sorted.bed.gz"
+
+
+rule make_allgenes_bed:
+    input:
+        expand(dir_proj+"beds/{gene}_TWAS.bed",gene=sig_genes)
+    output: 
+        dir_proj+"beds/allgenes_TWAS_sorted.bed.gz",
+        dir_proj+"beds/allgenes_TWAS_sorted.bed.gz.tbi"
+    shell: 
+        "cat beds/*_TWAS.bed >> beds/allgenes_TWAS.bed && "
+        "sort -k1,1 -k2,2n beds/allgenes_TWAS.bed > beds/allgenes_TWAS_sorted.bed && "
+        "bgzip beds/allgenes_TWAS_sorted.bed && "
+        "tabix -p bed beds/allgenes_TWAS_sorted.bed.gz"

@@ -1,0 +1,40 @@
+#Snakemake configuration file
+
+#Specify paths to data files
+
+#Paths must end with forward slash
+
+#project directory
+dir: /project2/nobrega/grace/expression/
+
+
+#Scripts directory:
+scripts: /project2/nobrega/grace/expression/scripts/snake_postprocess/
+
+
+#Log directory:
+dir_log: log/
+
+##########Files for TWAS##########
+#Trait:
+trait: WHR_M_subset
+
+#Tissue:
+tissue: adipose_subcutaneous
+
+#LD reference panel:
+LD: /project2/nobrega/grace/LD/GTEx_v8_LD_males_subset/
+
+########TWAS settings#############
+
+#Lookup table matching GTEx variant IDs to rsids:
+lookup: /project2/nobrega/grace/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table.txt.gz
+
+#Window size for grabbing variants around gene TSS:
+offset: 5e5
+
+#Expression dataset size:
+exp_N: 581
+
+#Where to look for genotypes:
+data_source: GTEx_v8

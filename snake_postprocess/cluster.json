@@ -1,0 +1,52 @@
+{
+    "__default__" :
+    {
+        "mem" : 4000,
+        "n" : 1,
+        "tasks" : 1
+    },
+    "prep_coloc_loci" :
+    {
+        "mem" : 24000,
+        "name" : "{rule}-{wildcards.gene}",
+        "logfile" : "log/{rule}-{wildcards.gene}-%j.out"
+    },
+    "run_coloc" :
+    {
+        "mem" : 8000,
+        "name" : "{rule}-{wildcards.gene}",
+        "logfile" : "log/{rule}-{wildcards.gene}-%j.out"
+    },
+    "collect_coloc" :
+    {
+        "name" : "{rule}",
+        "logfile" : "log/{rule}-%j.out"
+    },
+    "annotate_coloc" :
+    {
+        "mem" : 8000,
+        "name" : "{rule}",
+        "logfile" : "log/{rule}-%j.out"
+    },
+    "make_boxplots" :
+    {
+        "mem" : 24000,
+        "name" : "{rule}",
+        "logfile" : "log/{rule}-%j.out"
+    },
+    "make_beds" :
+    {
+        "name" : "{rule}-{wildcards.gene}",
+        "logfile" : "log/{rule}-{wildcards.gene}-%j.out"
+    },
+    "prep_beds" :
+    {
+        "name" : "{rule}-{wildcards.gene}",
+        "logfile" : "log/{rule}-{wildcards.gene}-%j.out"
+    },
+    "make_allgenes_bed" :
+    {
+        "name" : "{rule}",
+        "logfile" : "log/{rule}-%j.out"
+    }
+}
